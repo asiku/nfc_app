@@ -172,11 +172,13 @@ public class Frm_utama extends javax.swing.JFrame {
 
     }
 
-    public void Bacadata() throws CardException {
+    
+    
+    public String Bacadata(byte block) throws CardException {
 
         otentikasi();
         String cardID = "";
-        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, 0x05, 0x10));
+        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, 0x04, 0x10));
 
         System.out.println("" + String.format("%02X", answer.getSW1()) + " " + String.format("%02X", answer.getSW2()));
 
@@ -190,7 +192,8 @@ public class Frm_utama extends javax.swing.JFrame {
         for (int i = 0; i < r.length; i++) {
             cardID += String.format("%02X", r[i]);
         }
-        this.txt_baca_data.setText(cardID);
+//        this.txt_baca_data.setText(cardID);
+return cardID;
 
     }
 
@@ -522,7 +525,17 @@ System.out.println(data.length());
         // TODO add your handling code here:
         if (lbl_stat_nfc.getText().equals("card")) {
             try {
-                Bacadata();
+//     
+
+Mifare_1kMap p=new  Mifare_1kMap();
+String b="";
+
+
+
+       for (int i = 0; i < p.blocks.length; i++) {
+              b=b+    Bacadata(p.blocks[i]);
+       }
+       this.txt_baca_data.setText(b);
             } catch (CardException ex) {
                 Logger.getLogger(Frm_utama.class.getName()).log(Level.SEVERE, null, ex);
             }
