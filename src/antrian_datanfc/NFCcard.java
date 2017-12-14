@@ -135,7 +135,7 @@ public class NFCcard {
 
         NFCcard c = new NFCcard();
         c.CekRead();
-        System.out.println(c.getCardID());
+//        System.out.println(c.getCardID());
 //c.CekRead();
     }
 

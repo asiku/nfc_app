@@ -29,6 +29,7 @@ import javax.smartcardio.TerminalFactory;
 import javax.swing.JOptionPane;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.xml.bind.DatatypeConverter;
 
 /**
  *
@@ -73,29 +74,30 @@ public class Frm_utama extends javax.swing.JFrame {
         public void run() {
 
             ///////////////////This fix applied after reading thread at http://stackoverflow.com/a/16987873/1411888
-            try {
-                Class pcscterminal
-                        = Class.forName("sun.security.smartcardio.PCSCTerminals");
-                Field contextId = pcscterminal.getDeclaredField("contextId");
-                contextId.setAccessible(true);
-
-                if (contextId.getLong(pcscterminal) != 0L) {
-                    Class pcsc
-                            = Class.forName("sun.security.smartcardio.PCSC");
-
-                    Method SCardEstablishContext = pcsc.getDeclaredMethod(
-                            "SCardEstablishContext", new Class[]{Integer.TYPE});
-                    SCardEstablishContext.setAccessible(true);
-
-                    Field SCARD_SCOPE_USER
-                            = pcsc.getDeclaredField("SCARD_SCOPE_USER");
-                    SCARD_SCOPE_USER.setAccessible(true);
-
-                    long newId = ((Long) SCardEstablishContext.invoke(pcsc, new Object[]{Integer.valueOf(SCARD_SCOPE_USER.getInt(pcsc))})).longValue();
-                    contextId.setLong(pcscterminal, newId);
-                }
-            } catch (Exception ex) {
-            }
+//            try {
+//                Class pcscterminal
+//                        = Class.forName("sun.security.smartcardio.PCSCTerminals");
+//                Field contextId = pcscterminal.getDeclaredField("contextId");
+//                contextId.setAccessible(true);
+//
+//                if (contextId.getLong(pcscterminal) != 0L) {
+//                    Class pcsc
+//                            = Class.forName("sun.security.smartcardio.PCSC");
+//
+//                    Method SCardEstablishContext = pcsc.getDeclaredMethod(
+//                            "SCardEstablishContext", new Class[]{Integer.TYPE});
+//                    SCardEstablishContext.setAccessible(true);
+//
+//                    Field SCARD_SCOPE_USER
+//                            = pcsc.getDeclaredField("SCARD_SCOPE_USER");
+//                    SCARD_SCOPE_USER.setAccessible(true);
+//
+//                    long newId = ((Long) SCardEstablishContext.invoke(pcsc, new Object[]{Integer.valueOf(SCARD_SCOPE_USER.getInt(pcsc))})).longValue();
+//                    contextId.setLong(pcscterminal, newId);
+//                }
+//            } catch (Exception ex) {
+//            }
+//            
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             TerminalFactory factory = null;
@@ -151,17 +153,32 @@ public class Frm_utama extends javax.swing.JFrame {
         }// end run
     }
 
+    
+    public void otentkasi_mifare1k(byte blok){
+    String otk = send(new byte[]{(byte) 0xFF,
+            (byte) 0x88, (byte) 0x00, blok, (byte) 0x60, (byte) 0x00}, cardChannel);
+        if (otk.equals("9000")) {
+            System.out.println("sukses Authentikasi");
+            lbl_stat_otentik.setText("Berhasil Di Otentikasi");
+        } else {
+            System.out.println("gagal Authentikasi");
+            lbl_stat_otentik.setText("Gagal Otentikasi Device Tidak Bisa Baca dan Write Code:" + otk);
+        }
+    }
+    
     public void otentikasi() {
 
-        System.out.println("auth:" + send(new byte[]{(byte) 0xFF,
-            (byte) 0x88, (byte) 0x00, (byte) 0x04, (byte) 0x60, (byte) 0x00}, cardChannel));
+//        System.out.println("auth:" + send(new byte[]{(byte) 0xFF,
+//            (byte) 0x88, (byte) 0x00, (byte) 0x04, (byte) 0x60, (byte) 0x00}, cardChannel));
 
-        //9000
+        //parameter ke 4 autentikasi perblok
         String otk = send(new byte[]{(byte) 0xFF,
             (byte) 0x88, (byte) 0x00, (byte) 0x04, (byte) 0x60, (byte) 0x00}, cardChannel);
         if (otk.equals("9000")) {
+            System.out.println("sukses Authentikasi");
             lbl_stat_otentik.setText("Berhasil Di Otentikasi");
         } else {
+            System.out.println("gagal Authentikasi");
             lbl_stat_otentik.setText("Gagal Otentikasi Device Tidak Bisa Baca dan Write Code:" + otk);
         }
     }
@@ -173,12 +190,100 @@ public class Frm_utama extends javax.swing.JFrame {
     }
 
     
+    private void ResultMifar1k(){
+         Mifare_1kMap mifare = new Mifare_1kMap();
+         String b = "";
+         for (int i = 0; i < mifare.blocks.length; i++) {
+            otentkasi_mifare1k(mifare.blocks[i]);
+             try {
+                 b=b+BacadataMifare1k(mifare.blocks[i]);
+             } catch (CardException ex) {
+                 Logger.getLogger(Frm_utama.class.getName()).log(Level.SEVERE, null, ex);
+             }
+         }
+         
+         this.txt_baca_data.setText(b);
+
+    
+    }
+    
+       private String BacadataMifare1k(byte blok) throws CardException {
+
+         
+        String cardID = "";
+
+
+        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, blok, 0x10));
+        
+        System.out.println("" + String.format("%02X", answer.getSW1()) + " " + String.format("%02X", answer.getSW2()));
+
+        if (answer.getSW1() == 0x90 && answer.getSW2() == 0x00) {
+            System.out.println("sukses");
+        } else if (answer.getSW1() == 0x63 && answer.getSW2() == 0x00) {
+            System.out.println("gagal");
+        }
+
+        byte r[] = answer.getData();
+        for (int i = 0; i < r.length; i++) {
+            cardID += String.format("%02X", r[i]);
+        }
+        
+        StringBuilder rst = new StringBuilder();
+        for (int i = 0; i < cardID.length(); i += 2) {
+            String str = cardID.substring(i, i + 2);
+            rst.append((char) Integer.parseInt(str, 16));
+        }
+        
+        System.out.println("result :"+ rst.toString());
+//        this.txt_baca_data.setText(rst.toString());
+        return rst.toString();
+    }
+    
+ 
+    
+    public void Bacadata2() throws CardException {
+
+//        otentikasi();
+
+         Mifare_1kMap mifare = new Mifare_1kMap();
+         
+         otentkasi_mifare1k(mifare.blocks[3]);
+         
+        String cardID = "";
+//        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, 0x04, 0x10));
+
+        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, mifare.blocks[3], 0x10));
+        
+        System.out.println("" + String.format("%02X", answer.getSW1()) + " " + String.format("%02X", answer.getSW2()));
+
+        if (answer.getSW1() == 0x90 && answer.getSW2() == 0x00) {
+            System.out.println("sukses");
+        } else if (answer.getSW1() == 0x63 && answer.getSW2() == 0x00) {
+            System.out.println("gagal");
+        }
+
+        byte r[] = answer.getData();
+        for (int i = 0; i < r.length; i++) {
+            cardID += String.format("%02X", r[i]);
+        }
+        
+        StringBuilder rst = new StringBuilder();
+        for (int i = 0; i < cardID.length(); i += 2) {
+            String str = cardID.substring(i, i + 2);
+            rst.append((char) Integer.parseInt(str, 16));
+        }
+        
+        
+        this.txt_baca_data.setText(rst.toString());
+
+    }
+    
     
     public String Bacadata(byte block) throws CardException {
 
-        otentikasi();
+        
         String cardID = "";
-        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, 0x04, 0x10));
+        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, block, 0x10));
 
         System.out.println("" + String.format("%02X", answer.getSW1()) + " " + String.format("%02X", answer.getSW2()));
 
@@ -193,50 +298,59 @@ public class Frm_utama extends javax.swing.JFrame {
             cardID += String.format("%02X", r[i]);
         }
 //        this.txt_baca_data.setText(cardID);
-return cardID;
+
+//   byte[] s = DatatypeConverter.parseHexBinary(res);
+//    System.out.println(new String(s));
+
+ StringBuilder rst = new StringBuilder();
+        for (int i = 0; i < cardID.length(); i += 2) {
+            String str = cardID.substring(i, i + 2);
+            rst.append((char) Integer.parseInt(str, 16));
+        }
+
+        return rst.toString();
 
     }
 
-    private boolean Cektrailer(int cek) {
-
-        boolean at = false;
-
-        HashMap trailer = new HashMap();
-
-        int a = 0;
-        for (int i = 7; i < 64; i = i + 4) {
-            a++;
-            trailer.put(a, i);
-
-        }
-
-        Set set = trailer.entrySet();
-
-        Iterator ite = set.iterator();
-
-        while (ite.hasNext()) {
-
-            Map.Entry me = (Map.Entry) ite.next();
-
-            if (me.getValue().equals(cek)) {
-                at = true;
-                break;
-            } else {
-                at = false;
-                break;
-            }
-
-        }
-
-        return at;
-    }
+//    private boolean Cektrailer(int cek) {
+//
+//        boolean at = false;
+//
+//        HashMap trailer = new HashMap();
+//
+//        int a = 0;
+//        for (int i = 7; i < 64; i = i + 4) {
+//            a++;
+//            trailer.put(a, i);
+//
+//        }
+//
+//        Set set = trailer.entrySet();
+//
+//        Iterator ite = set.iterator();
+//
+//        while (ite.hasNext()) {
+//
+//            Map.Entry me = (Map.Entry) ite.next();
+//
+//            if (me.getValue().equals(cek)) {
+//                at = true;
+//                break;
+//            } else {
+//                at = false;
+//                break;
+//            }
+//
+//        }
+//
+//        return at;
+//    }
 
     private void InitTulis() {
 
-        if (this.txt_write_data.getText().length() <= 710) {
-            
+        if (this.txt_write_data.getText().length() <= 720) {
+
 //            otentikasi();
-             
             int len = this.txt_write_data.getText().length();
 
             String txt = this.txt_write_data.getText();
@@ -259,24 +373,25 @@ return cardID;
 
             }
 
-
             Mifare_1kMap mifare = new Mifare_1kMap();
 
             //mapping block selesai tinggal data string yg blon
             int txtbagi = 0;
-int txtc=0;
+            int txtc = 0;
             for (int i = 0; i < bagi; i++) {
-txtc++;
+                txtc++;
 //                System.out.println("txt:" + txt.substring(txtbagi * 16, i * 16).getBytes(StandardCharsets.US_ASCII));
 //                System.out.print(i + ":");
 //                System.out.println(mifare.blocks[i]);
 
 //                System.out.println(txtc+" "+txt);
 //System.out.println(txt.substring(txtbagi*16, txtc*16));
-             this.TulisData(mifare.blocks[i], (byte)0x10, txt.substring(txtbagi*16, txtc*16));
-             
-             txtbagi++;
-             
+               
+                otentkasi_mifare1k(mifare.blocks[i]);
+                this.TulisData(mifare.blocks[i], (byte) 0x10, txt.substring(txtbagi * 16, txtc * 16));
+
+                txtbagi++;
+
             }
 
 //        this.txt_write_data.setText("");
@@ -284,13 +399,13 @@ txtc++;
             JOptionPane.showMessageDialog(null, "text melebihi kapasitas kartu!");
             StringBuilder txt = new StringBuilder(txt_write_data.getText());
 
-            txt_write_data.setText(txt.substring(0, 710));
+            txt_write_data.setText(txt.substring(0, 720));
         }
     }
 
     private void TulisData(byte blok, byte ukuran, String data) {
         if (this.txt_write_data.getText().length() <= 710) {
-            byte[] opcode = new byte[5+data.length()];
+            byte[] opcode = new byte[5 + data.length()];
 
             opcode[0] = (byte) 0xFF;
             opcode[1] = (byte) 0xD6;
@@ -298,16 +413,16 @@ txtc++;
             opcode[3] = blok;
             opcode[4] = ukuran;
 
-System.out.println(data.length());
+            System.out.println(data.length());
 
             for (int i = 0; i < data.length(); i++) {
                 //edit here  
                 opcode[5 + i] = (byte) data.charAt(i);
-                System.out.println("tes baca: "+i);
+                System.out.println("tes baca: " + i);
 
             }
 //
-            send(opcode, cardChannel);
+            System.out.println("tulis:"+send(opcode, cardChannel));
         } else {
 
             JOptionPane.showMessageDialog(null, "text melebihi kapasitas kartu!");
@@ -358,6 +473,14 @@ System.out.println(data.length());
             // The result is formatted as a hexadecimal integer
         }
 
+//        StringBuilder rst = new StringBuilder();
+//        for (int i = 0; i < res.length(); i += 2) {
+//            String str = res.substring(i, i + 2);
+//            rst.append((char) Integer.parseInt(str, 16));
+//        }
+
+     
+        
         return res;
     }
 
@@ -383,6 +506,8 @@ System.out.println(data.length());
         txt_write_data = new javax.swing.JTextArea();
         jScrollPane2 = new javax.swing.JScrollPane();
         txt_baca_data = new javax.swing.JTextArea();
+        jButton1 = new javax.swing.JButton();
+        bt_bacakartu = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -446,19 +571,42 @@ System.out.println(data.length());
         );
 
         txt_baca_data.setColumns(20);
+        txt_baca_data.setLineWrap(true);
         txt_baca_data.setRows(5);
         jScrollPane2.setViewportView(txt_baca_data);
+
+        jButton1.setText("tes baca");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+
+        bt_bacakartu.setText("Baca Kartu");
+        bt_bacakartu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bt_bacakartuActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(56, 56, 56)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lbl_stat_otentik, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(lbl_stat_nfc, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(lbl_stat_nfcreader, javax.swing.GroupLayout.PREFERRED_SIZE, 314, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGap(56, 56, 56)
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(lbl_stat_otentik, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(lbl_stat_nfc, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(lbl_stat_nfcreader, javax.swing.GroupLayout.PREFERRED_SIZE, 314, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(bt_bacakartu)
+                        .addGap(27, 27, 27)
+                        .addComponent(jButton1)
+                        .addGap(9, 9, 9)))
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -470,10 +618,8 @@ System.out.println(data.length());
                             .addGroup(jPanel1Layout.createSequentialGroup()
                                 .addGap(12, 12, 12)
                                 .addComponent(jLabel2)))
-                        .addGap(0, 4, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jScrollPane2)))
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING))
                 .addContainerGap())
             .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
@@ -498,7 +644,9 @@ System.out.println(data.length());
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(bt_baca_data)
-                    .addComponent(bt_baca_data1))
+                    .addComponent(bt_baca_data1)
+                    .addComponent(jButton1)
+                    .addComponent(bt_bacakartu))
                 .addGap(22, 22, 22))
         );
 
@@ -524,22 +672,14 @@ System.out.println(data.length());
     private void bt_baca_dataActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bt_baca_dataActionPerformed
         // TODO add your handling code here:
         if (lbl_stat_nfc.getText().equals("card")) {
-            try {
-//     
-
-Mifare_1kMap p=new  Mifare_1kMap();
-String b="";
-
-
-
-       for (int i = 0; i < p.blocks.length; i++) {
-              b=b+    Bacadata(p.blocks[i]);
-       }
-       this.txt_baca_data.setText(b);
-            } catch (CardException ex) {
-                Logger.getLogger(Frm_utama.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
+            Mifare_1kMap p = new Mifare_1kMap();
+            String b = "";
+            otentikasi();
+            byte[] read_four_to_seven = new byte[]{(byte) 0xFF, (byte) 0x00, (byte) 0x00,
+                (byte) 0x00, (byte) 0x05, (byte) 0x0D4, (byte) 0x40, (byte) 0x01,
+                (byte) 0x30, (byte) 0x04, (byte) 0x07 };
+            System.out.println("Read : " + send(read_four_to_seven, cardChannel));
+            
         }
 
     }//GEN-LAST:event_bt_baca_dataActionPerformed
@@ -559,6 +699,23 @@ String b="";
         InitTulis();
 
     }//GEN-LAST:event_bt_baca_data1ActionPerformed
+
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        try {
+            // TODO add your handling code here:
+            
+//            otentikasi();
+            Bacadata2();
+        } catch (CardException ex) {
+            Logger.getLogger(Frm_utama.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+    }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void bt_bacakartuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bt_bacakartuActionPerformed
+        // TODO add your handling code here:
+        ResultMifar1k();
+    }//GEN-LAST:event_bt_bacakartuActionPerformed
 
     /**
      * @param args the command line arguments
@@ -598,6 +755,8 @@ String b="";
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton bt_baca_data;
     private javax.swing.JButton bt_baca_data1;
+    private javax.swing.JButton bt_bacakartu;
+    private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
