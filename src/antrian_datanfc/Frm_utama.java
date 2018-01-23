@@ -48,6 +48,7 @@ public class Frm_utama extends javax.swing.JFrame {
 //
         Timer timer = new Timer();  //At this line a new Thread will be created
         MyTask task = new MyTask();
+        
 
         timer.scheduleAtFixedRate(task, 0, 1000);
         txt_write_data.getDocument().addDocumentListener(new DocumentListener() {
@@ -69,6 +70,14 @@ public class Frm_utama extends javax.swing.JFrame {
 
     }
 
+    
+    class bacan extends Thread{ 
+      public void run(){
+//          ResultMifar1k();
+jButton1.setText("tss");
+      }
+    } 
+    
     class MyTask extends TimerTask {
 
         public void run() {
@@ -127,6 +136,11 @@ public class Frm_utama extends javax.swing.JFrame {
 
                             System.out.println("Card");
                             lbl_stat_nfc.setText("card");
+
+//                            bacan t=new bacan();
+//                            t.start();
+                            
+                           
                         } else {
                             System.out.println("No Card");
                             lbl_stat_nfc.setText("No card");
@@ -143,7 +157,9 @@ public class Frm_utama extends javax.swing.JFrame {
                 factory = null;
 
                 terminals = null;
-
+                
+               
+                
                 Runtime.getRuntime().gc();
 
             } else {
@@ -154,7 +170,7 @@ public class Frm_utama extends javax.swing.JFrame {
     }
 
     
-    public void otentkasi_mifare1k(byte blok){
+    public void otentkasi_mifare1k(byte blok) {
     String otk = send(new byte[]{(byte) 0xFF,
             (byte) 0x88, (byte) 0x00, blok, (byte) 0x60, (byte) 0x00}, cardChannel);
         if (otk.equals("9000")) {
@@ -166,12 +182,32 @@ public class Frm_utama extends javax.swing.JFrame {
         }
     }
     
-    public void otentikasi() {
+    public void loadkey(){
+        
+     // password baru wolaaa=77 6f 6c 61 61 61   
+    
+    String otk = send(new byte[]{(byte) 0xFF,
+            (byte) 0x82, (byte) 0x00, (byte) 0x00, (byte) 0x06, 
+            (byte) 0x77,(byte) 0x6F,(byte) 0x6C,(byte) 0x61,(byte) 0x61,(byte) 0x61}, cardChannel);
+        if (otk.equals("9000")) {
+            System.out.println("sukses Authentikasi");
+            lbl_stat_otentik.setText("Berhasil Di Otentikasi");
+        } else {
+            System.out.println("gagal Authentikasi");
+            lbl_stat_otentik.setText("Gagal Otentikasi Device Tidak Bisa Baca dan Write Code:" + otk);
+        }
+    }
+    
+    public void otentikasi() throws CardException {
 
 //        System.out.println("auth:" + send(new byte[]{(byte) 0xFF,
 //            (byte) 0x88, (byte) 0x00, (byte) 0x04, (byte) 0x60, (byte) 0x00}, cardChannel));
 
         //parameter ke 4 autentikasi perblok
+        
+        //loadkey non default password
+        loadkey();
+        
         String otk = send(new byte[]{(byte) 0xFF,
             (byte) 0x88, (byte) 0x00, (byte) 0x04, (byte) 0x60, (byte) 0x00}, cardChannel);
         if (otk.equals("9000")) {
@@ -181,6 +217,8 @@ public class Frm_utama extends javax.swing.JFrame {
             System.out.println("gagal Authentikasi");
             lbl_stat_otentik.setText("Gagal Otentikasi Device Tidak Bisa Baca dan Write Code:" + otk);
         }
+        
+        
     }
 
     private void jmlkar() {
@@ -190,7 +228,7 @@ public class Frm_utama extends javax.swing.JFrame {
     }
 
     
-    private void ResultMifar1k(){
+    private void ResultMifar1k() {
          Mifare_1kMap mifare = new Mifare_1kMap();
          String b = "";
          for (int i = 0; i < mifare.blocks.length; i++) {
@@ -235,6 +273,7 @@ public class Frm_utama extends javax.swing.JFrame {
         }
         
         System.out.println("result :"+ rst.toString());
+       
 //        this.txt_baca_data.setText(rst.toString());
         return rst.toString();
     }
@@ -403,7 +442,7 @@ public class Frm_utama extends javax.swing.JFrame {
         }
     }
 
-    private void TulisData(byte blok, byte ukuran, String data) {
+    private void TulisData(byte blok, byte ukuran, String data)  {
         if (this.txt_write_data.getText().length() <= 710) {
             byte[] opcode = new byte[5 + data.length()];
 
@@ -433,7 +472,32 @@ public class Frm_utama extends javax.swing.JFrame {
         }
     }
 
-    private byte[] DataAscii() {
+    
+    
+    private void TulisTes(byte blok, byte ukuran, String data)  {
+        
+            byte[] opcode = new byte[5 + data.length()];
+
+            opcode[0] = (byte) 0xFF;
+            opcode[1] = (byte) 0xD6;
+            opcode[2] = (byte) 0x00;
+            opcode[3] = blok;
+            opcode[4] = ukuran;
+
+            System.out.println(data.length());
+
+            for (int i = 0; i < data.length(); i++) {
+                //edit here  
+                opcode[5 + i] = (byte) data.charAt(i);
+                System.out.println("tes baca: " + i);
+
+            }
+//
+            System.out.println("tulis:"+send(opcode, cardChannel));
+        
+    }
+
+    private byte[] DataAscii() throws CardException {
 
         byte[] bytes;
 
@@ -450,7 +514,7 @@ public class Frm_utama extends javax.swing.JFrame {
         return null;
     }
 
-    public String send(byte[] cmd, CardChannel channel) {
+    public String send(byte[] cmd, CardChannel channel)  {
 
         String res = "";
 
@@ -472,6 +536,7 @@ public class Frm_utama extends javax.swing.JFrame {
             res += String.format("%02X", baResp[i]);
             // The result is formatted as a hexadecimal integer
         }
+
 
 //        StringBuilder rst = new StringBuilder();
 //        for (int i = 0; i < res.length(); i += 2) {
@@ -508,6 +573,7 @@ public class Frm_utama extends javax.swing.JFrame {
         txt_baca_data = new javax.swing.JTextArea();
         jButton1 = new javax.swing.JButton();
         bt_bacakartu = new javax.swing.JButton();
+        jButton2 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -521,7 +587,7 @@ public class Frm_utama extends javax.swing.JFrame {
 
         lbl_stat_otentik.setText("otentikasi");
 
-        bt_baca_data.setText("Baca");
+        bt_baca_data.setText("Baca Blok 4");
         bt_baca_data.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 bt_baca_dataActionPerformed(evt);
@@ -556,9 +622,11 @@ public class Frm_utama extends javax.swing.JFrame {
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lbl_jml)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 671, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addComponent(lbl_jml)
+                        .addGap(0, 760, Short.MAX_VALUE))
+                    .addComponent(jScrollPane1))
+                .addContainerGap())
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -589,6 +657,13 @@ public class Frm_utama extends javax.swing.JFrame {
             }
         });
 
+        jButton2.setText("tes write ganti password");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -601,26 +676,28 @@ public class Frm_utama extends javax.swing.JFrame {
                             .addComponent(lbl_stat_otentik, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(lbl_stat_nfc, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(lbl_stat_nfcreader, javax.swing.GroupLayout.PREFERRED_SIZE, 314, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                    .addGroup(jPanel1Layout.createSequentialGroup()
                         .addContainerGap()
                         .addComponent(bt_bacakartu)
-                        .addGap(27, 27, 27)
-                        .addComponent(jButton1)
-                        .addGap(9, 9, 9)))
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(bt_baca_data1, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel1Layout.createSequentialGroup()
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(jPanel1Layout.createSequentialGroup()
-                                .addGap(45, 45, 45)
-                                .addComponent(bt_baca_data)
-                                .addGap(27, 27, 27)
-                                .addComponent(bt_baca_data1, javax.swing.GroupLayout.PREFERRED_SIZE, 191, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(jPanel1Layout.createSequentialGroup()
                                 .addGap(12, 12, 12)
-                                .addComponent(jLabel2)))
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING))
-                .addContainerGap())
+                                .addComponent(jLabel2)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING))
+                        .addContainerGap())
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(30, 30, 30)
+                        .addComponent(jButton1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(bt_baca_data, javax.swing.GroupLayout.PREFERRED_SIZE, 107, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(61, 61, 61))))
             .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
@@ -641,13 +718,15 @@ public class Frm_utama extends javax.swing.JFrame {
                         .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(bt_baca_data)
-                    .addComponent(bt_baca_data1)
-                    .addComponent(jButton1)
-                    .addComponent(bt_bacakartu))
-                .addGap(22, 22, 22))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(bt_bacakartu)
+                        .addComponent(bt_baca_data1)
+                        .addComponent(jButton2)
+                        .addComponent(jButton1))
+                    .addComponent(bt_baca_data))
+                .addContainerGap(47, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -674,12 +753,55 @@ public class Frm_utama extends javax.swing.JFrame {
         if (lbl_stat_nfc.getText().equals("card")) {
             Mifare_1kMap p = new Mifare_1kMap();
             String b = "";
-            otentikasi();
-            byte[] read_four_to_seven = new byte[]{(byte) 0xFF, (byte) 0x00, (byte) 0x00,
-                (byte) 0x00, (byte) 0x05, (byte) 0x0D4, (byte) 0x40, (byte) 0x01,
-                (byte) 0x30, (byte) 0x04, (byte) 0x07 };
-            System.out.println("Read : " + send(read_four_to_seven, cardChannel));
+            try {
+                otentikasi();
+            } catch (CardException ex) {
+                Logger.getLogger(Frm_utama.class.getName()).log(Level.SEVERE, null, ex);
+            }
+//            byte[] read_four_to_seven = new byte[]{(byte) 0xFF, (byte) 0x00, (byte) 0x00,
+//                (byte) 0x00, (byte) 0x05, (byte) 0x0D4, (byte) 0x40, (byte) 0x01,
+//                (byte) 0x30, (byte) 0x04, (byte) 0x07 };
+           
+//                System.out.println("Read : " + send(read_four_to_seven, cardChannel));
             
+                 
+
+         Mifare_1kMap mifare = new Mifare_1kMap();
+         
+         
+         
+        String cardID = "";
+//        ResponseAPDU answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, 0x04, 0x10));
+
+        ResponseAPDU answer = null;
+            try {
+                answer = cardChannel.transmit(new CommandAPDU(0xFF, 0xB0, 0x00, 0x04, 0x10));
+            } catch (CardException ex) {
+                Logger.getLogger(Frm_utama.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        
+        System.out.println("" + String.format("%02X", answer.getSW1()) + " " + String.format("%02X", answer.getSW2()));
+
+        if (answer.getSW1() == 0x90 && answer.getSW2() == 0x00) {
+            System.out.println("sukses");
+        } else if (answer.getSW1() == 0x63 && answer.getSW2() == 0x00) {
+            System.out.println("gagal");
+        }
+
+        byte r[] = answer.getData();
+        for (int i = 0; i < r.length; i++) {
+            cardID += String.format("%02X", r[i]);
+        }
+        
+        StringBuilder rst = new StringBuilder();
+        for (int i = 0; i < cardID.length(); i += 2) {
+            String str = cardID.substring(i, i + 2);
+            rst.append((char) Integer.parseInt(str, 16));
+        }
+        
+        
+        this.txt_baca_data.setText(rst.toString());
+
         }
 
     }//GEN-LAST:event_bt_baca_dataActionPerformed
@@ -692,11 +814,13 @@ public class Frm_utama extends javax.swing.JFrame {
     }//GEN-LAST:event_txt_write_dataKeyTyped
 
     private void bt_baca_data1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bt_baca_data1ActionPerformed
-        // TODO add your handling code here:
+        
+            // TODO add your handling code here:
 //        byte[] baResp = new byte[258];
 //        TulisData((byte) 0x00, (byte) 0x00, baResp);
 
-        InitTulis();
+InitTulis();
+        
 
     }//GEN-LAST:event_bt_baca_data1ActionPerformed
 
@@ -713,9 +837,25 @@ public class Frm_utama extends javax.swing.JFrame {
     }//GEN-LAST:event_jButton1ActionPerformed
 
     private void bt_bacakartuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bt_bacakartuActionPerformed
-        // TODO add your handling code here:
-        ResultMifar1k();
+         
+            ResultMifar1k();
+            
     }//GEN-LAST:event_bt_bacakartuActionPerformed
+
+    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+        // TODO add your handling code here:
+        String otk = send(new byte[]{(byte) 0xFF,
+            (byte) 0x88, (byte) 0x00, (byte) 0x07, (byte) 0x60, (byte) 0x00}, cardChannel);
+        if (otk.equals("9000")) {
+            System.out.println("sukses Authentikasi");
+            lbl_stat_otentik.setText("Berhasil Di Otentikasi");
+        } else {
+            System.out.println("gagal Authentikasi");
+            lbl_stat_otentik.setText("Gagal Otentikasi Device Tidak Bisa Baca dan Write Code:" + otk);
+        }
+        
+       this.TulisTes((byte)0x07, (byte) 0x10, "wolaaaÿiaaaaaa");
+    }//GEN-LAST:event_jButton2ActionPerformed
 
     /**
      * @param args the command line arguments
@@ -757,6 +897,7 @@ public class Frm_utama extends javax.swing.JFrame {
     private javax.swing.JButton bt_baca_data1;
     private javax.swing.JButton bt_bacakartu;
     private javax.swing.JButton jButton1;
+    private javax.swing.JButton jButton2;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
